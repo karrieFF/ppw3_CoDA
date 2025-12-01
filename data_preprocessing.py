@@ -166,17 +166,57 @@ for i in rename_data['Id'].unique():
 
 # put all ids back together
 rename_data = pd.concat(all_list, ignore_index=True)
-rename_data.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\expand_fitbit.csv", index=False)
 
-#----------------prepare the variables we needed
+#-------------------------prepare the variables we needed and output the long format data
 
 rename_data['MVPA'] = rename_data['VeryActiveMinutes'] + rename_data['FairlyActiveMinutes']
 rename_data['Sleep'] = rename_data['TotalMinutesAsleep']
 rename_data['Sedentary'] = rename_data['SedentaryMinutes'] # - rename_data['TotalMinutesAsleep']
 rename_data['LPA'] = rename_data['LightlyActiveMinutes']
 
-#print(rename_data.columns.tolist())
-#-----------------convert to wide format
+#rename_data.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\fitbit_long_format.csv", index=False)
+
+#---------------------------prepare survey outcomes
+
+#print('final_data', final_data.columns.tolist())
+#baseline: nervous/down/blue 1=0, 2=25, 3=50, 4=75, 5=100; clam/happy: 1=100, 2=75, 3=50, 4=25, 5=0
+#follow-up: nervous/down/blue 1=0, 2=20, 3=40, 4=60, 5=80, 6=100; calm/happy: 1=100, 2=80, 3=60, 4=40, 5=0
+replace_outcome_data = survey_filtered.copy()
+
+#baseline
+replace_outcome_data['nervous'] = replace_outcome_data['nervous'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
+replace_outcome_data['down'] = replace_outcome_data['nervous'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
+replace_outcome_data['blue'] = replace_outcome_data['down'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
+replace_outcome_data['calm'] = replace_outcome_data['calm'].replace({1:100, 2:75, 3:50, 4:25, 5:0})
+replace_outcome_data['happy'] = replace_outcome_data['happy'].replace({1:100, 2:75, 3:50, 4:25, 5:0})
+
+#follow-up 1
+replace_outcome_data['nervous_v1'] = replace_outcome_data['nervous_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['down_v1'] = replace_outcome_data['down_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['blue_v1'] = replace_outcome_data['blue_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['calm_v1'] = replace_outcome_data['calm_v1'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
+replace_outcome_data['happy_v1'] = replace_outcome_data['happy_v1'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
+
+#follow-up 2
+replace_outcome_data['nervous_v2'] = replace_outcome_data['nervous_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['down_v2'] = replace_outcome_data['down_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['blue_v2'] = replace_outcome_data['blue_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
+replace_outcome_data['calm_v2'] = replace_outcome_data['calm_v2'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
+replace_outcome_data['happy_v2'] = replace_outcome_data['happy_v2'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
+
+#aggregate MH score
+replace_outcome_data['MH_baseline'] = replace_outcome_data[['nervous', 'down', 'blue', 'calm', 'happy']].mean(axis=1)
+replace_outcome_data['MH_followup1'] = replace_outcome_data[['nervous_v1', 'down_v1', 'blue_v1', 'calm_v1', 'happy_v1']].mean(axis=1)
+replace_outcome_data['MH_followup2'] = replace_outcome_data[['nervous_v2', 'down_v2', 'blue_v2', 'calm_v2', 'happy_v2']].mean(axis=1)
+#print("replace_outcome_data", replace_outcome_data[['record_id', 'MH_baseline', 'MH_followup1', 'MH_followup2']].head())
+
+#print("After rescale:", replace_outcome_data[['consent_and_screening_survey_timestamp', 'baseline_wellness_behavior_survey_timestamp']])
+#-----------------------------------------------connvert to long format
+fitbit_data_long = rename_data.groupby(['Id','Day'], as_index=False).mean()
+final_fitbit_survey_long = pd.merge(fitbit_data_long, replace_outcome_data, left_on='Id', right_on='record_id', how='inner')
+
+final_fitbit_survey_long.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit_long.csv", index=False)
+#----------------------------------------------convert to wide format
 #select variables needed
 columns_to_convert = ['TotalSteps','MVPA', 
 'Sleep', 
@@ -215,45 +255,12 @@ wide_all.columns = [
 wide_all = wide_all.reset_index()
 
 #merge with survey data
-final_data = pd.merge(survey_filtered, wide_all, left_on='record_id', right_on='Id', how='inner')
+final_data_wide = pd.merge(replace_outcome_data, wide_all, left_on='record_id', right_on='Id', how='inner')
 
 #export the final data
 #final_data.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit.csv", index=False)
 
-
-#---------------------------prepare outcomes
-#print('final_data', final_data.columns.tolist())
-#baseline: nervous/down/blue 1=0, 2=25, 3=50, 4=75, 5=100; clam/happy: 1=100, 2=75, 3=50, 4=25, 5=0
-#follow-up: nervous/down/blue 1=0, 2=20, 3=40, 4=60, 5=80, 6=100; calm/happy: 1=100, 2=80, 3=60, 4=40, 5=0
-replace_outcome_data = final_data.copy()
-
-#baseline
-replace_outcome_data['nervous'] = replace_outcome_data['nervous'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
-replace_outcome_data['down'] = replace_outcome_data['nervous'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
-replace_outcome_data['blue'] = replace_outcome_data['down'].replace({1:0, 2:25, 3:50, 4:75, 5:100})
-replace_outcome_data['calm'] = replace_outcome_data['calm'].replace({1:100, 2:75, 3:50, 4:25, 5:0})
-replace_outcome_data['happy'] = replace_outcome_data['happy'].replace({1:100, 2:75, 3:50, 4:25, 5:0})
-
-#follow-up 1
-replace_outcome_data['nervous_v1'] = replace_outcome_data['nervous_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['down_v1'] = replace_outcome_data['down_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['blue_v1'] = replace_outcome_data['blue_v1'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['calm_v1'] = replace_outcome_data['calm_v1'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
-replace_outcome_data['happy_v1'] = replace_outcome_data['happy_v1'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
-
-#follow-up 2
-replace_outcome_data['nervous_v2'] = replace_outcome_data['nervous_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['down_v2'] = replace_outcome_data['down_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['blue_v2'] = replace_outcome_data['blue_v2'].replace({1:0, 2:20, 3:40, 4:60, 5:80, 6:100})
-replace_outcome_data['calm_v2'] = replace_outcome_data['calm_v2'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
-replace_outcome_data['happy_v2'] = replace_outcome_data['happy_v2'].replace({1:100, 2:80, 3:60, 4:40, 5:20, 6:0})
-
-#aggregate MH score
-replace_outcome_data['MH_baseline'] = replace_outcome_data[['nervous', 'down', 'blue', 'calm', 'happy']].mean(axis=1)
-replace_outcome_data['MH_followup1'] = replace_outcome_data[['nervous_v1', 'down_v1', 'blue_v1', 'calm_v1', 'happy_v1']].mean(axis=1)
-replace_outcome_data['MH_followup2'] = replace_outcome_data[['nervous_v2', 'down_v2', 'blue_v2', 'calm_v2', 'happy_v2']].mean(axis=1)
-
-replace_outcome_data.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit.csv", index=False)
+final_data_wide.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit_wide.csv", index=False)
 
 
 
