@@ -13,6 +13,7 @@ install.packages('zCompositions')
 install.packages(c("ggtern", "dplyr"))
 install.packages('tidyr')
 install.packages("lme4")
+install.packages('lmerTest')
 
 library('zCompositions')
 library('dplyr')
@@ -20,7 +21,8 @@ library('compositions')
 library('ggtern')
 library('dplyr')
 library('tidyr')
-library('lme4')
+#library('lme4')
+library('lmerTest')
 
 merged_file <- read.csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit_wide.csv")
 fitbit_long_form <- read.csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\merge_survey_fitbit_long.csv")
@@ -43,14 +45,13 @@ summary_stats <- merged_file %>%
     )
   )#remove null when I do mean
 
-write.csv(summary_stats, 'summary_stats.csv', row.names=FALSE) 
+write.csv(summary_stats, 'summary_stats.csv', row.names=FALSE) #the first week after the health coaching increase, but then decrease, that means one health coaching session only have a short term efficacy
 
 #-------------------number of goals setting in the dataset
 print(colnames(merged_file))
 print(colnames(merged_file))
 
-#--------------------------------compositional data anlaysis
-#step 1. try baseline composition first
+#--------------------------------compositional data anlaysis (descriptive analysis, the compostional score in baseline, second week, and the last week)
 #"LPA_week0", "MVPA_week0", "Sedentary_week0", "Sleep_week0"
 baseline_CoDA <- c ("LPA_week0", "MVPA_week0", "Sedentary_week0", "Sleep_week0", "TotalMinutesWearTime_week0",
                     "LPA_week1", "MVPA_week1", "Sedentary_week1", "Sleep_week1", "TotalMinutesWearTime_week1",
@@ -60,7 +61,7 @@ baseline_CoDA <- c ("LPA_week0", "MVPA_week0", "Sedentary_week0", "Sleep_week0",
                     "MH_followup2",
                     "demographics_sex")
 
-baseline_CoDA_data <- merged_file[baseline_CoDA]
+baseline_CoDA_data <- merged_file[baseline_CoDA] #The means are scaled to sum up to 1440 min (24 h).
 baseline_rescale <- baseline_CoDA_data %>%
   mutate(
     total_0 = Sleep_week0 + Sedentary_week0 + LPA_week0 + MVPA_week0,
@@ -167,18 +168,9 @@ Pa <- ggtern(rescale_data, aes(x = MVPAv, y = Sedentaryv, z = LPAv, color = Day)
   )
 Pa
 
-#---------------------------compare the difference between two compostional anlaysis
-select_week0 <- select_variable_week02[select_variable_week02$Day %in% 'week0', ]
-select_week2 <- select_variable_week02[select_variable_week02$Day %in% 'week2', ]
+#----------------------regression analysis, linear mixed effects: changes between baseline to 6-weeks
+#do simple generalized linear mixed modeling first and then do the compositional data analysis, to see what is the difference
 
-com_week0 <- acomp(select_week0)
-com_week2 <- acomp(select_week2)
-
-#step 2. calculate the difference
-diff_comp <- com_week2 - com_week0 #calculate difference
-diff_df <- as.data.frame(diff_comp) #convert to dataframe
-
-#------------------regression analysis
 colnames(fitbit_long_form)
 CoDA_var <- c ("Id","Day", "MVPA", "Sleep", "Sedentary", "LPA", "MH_baseline","MH_followup1", "MH_followup2", "demographics_sex")
 CoDA_dat <- fitbit_long_form[,CoDA_var]
@@ -199,7 +191,7 @@ CoDA_mh_long <- CoDA_rescale %>%
     values_to = 'MH_Score'
   )
 
-#----------------select week0, week 2, and week 6
+#select week0, week 2, and week 6
 CoDA_select <- CoDA_mh_long[CoDA_mh_long$Day %in% c('week0', 'week2', 'week6'),]
 coDA_comp <- acomp(CoDA_select[,c("MVPA", "Sleep", "Sedentary","LPA")])
 
@@ -209,13 +201,12 @@ ilr_df <- as.data.frame(comp_ilr)
 all_rescale <- bind_cols(CoDA_select, ilr_df)
 
 #regression analysis #Mixed-effects model if repeated measures
-model <-lmer(MH_Score ~ V1 + V2 + V3 + (1|Day), data = all_rescale)
+model <-lmer(MH_Score ~ V1 + V2 + V3 + (1|Day), data = all_rescale) #linear mixed-effects models, also known as multilevel models
 summary(model)
 
+#--------------------------reassign minutes and change of outcomes
 #“Replacing 30 min sedentary with 30 min LPA increases outcome by X
 # Use pivotCoord() or the coda.base package.
-
-#--------------------------reassign minutes
 #mean composition and helper to predict MH 
 parts <- c("MVPA", "Sleep", "Sedentary", "LPA")
 
@@ -225,6 +216,7 @@ mean_comp <- all_rescale %>%
   unlist()
 
 mean_comp
+
 # function: from a composition -> predicted MH (fixed effects only)
 predict_MH <- function(comp_vec, model) {
   
@@ -273,7 +265,7 @@ panel_MVPA <- panel_MVPA[!is.na(panel_MVPA$MH_pred), ]
 
 head(panel_MVPA)
 
-#------------plot the panel
+#plot the panel
 ggplot(panel_MVPA,
        aes(x = delta_min, y = MH_pred,
            linetype = from)) +
@@ -289,6 +281,15 @@ ggplot(panel_MVPA,
   theme_bw()
 
 
+#------------------compare the difference between two compostional anlaysis (delete this part)
+select_week0 <- select_variable_week02[select_variable_week02$Day %in% 'week0', ]
+select_week2 <- select_variable_week02[select_variable_week02$Day %in% 'week2', ]
 
+com_week0 <- acomp(select_week0)
+com_week2 <- acomp(select_week2)
+
+#step 2. calculate the difference
+diff_comp <- com_week2 - com_week0 #calculate difference
+diff_df <- as.data.frame(diff_comp) #convert to dataframe
 
 

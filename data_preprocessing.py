@@ -50,9 +50,9 @@ combine_final_validate2.loc[combine_final_validate2['Id'] == 69, 'Id'] = 72
 #select the participants who complete health coaching and at least one follow-up survey
 #please print the number of consent form; baseline survey; compelete health coaching; complete first follow-up survey; complete second follow-up survey
 survey_filtered = survey_data[
-    (survey_data['health_coach_survey_complete'] == 2) &
-    (survey_data['weeks_followup_survey_complete'] == 2)
-]
+    (survey_data['health_coach_survey_complete'] == 2) 
+    & (survey_data['weeks_followup_survey_complete'] == 2)
+] # 
 
 #rescale date format in survey_filtered
 rescale_date = ['consent_and_screening_survey_timestamp', 
@@ -88,7 +88,7 @@ for i in survey_filtered_ids:
         'include_in_analysis'
     ] = True
 
-# #enlarge the data
+#enlarge the data
 enlarge_data = fitbit_filter.copy()
 
 expanded_list = []
@@ -120,7 +120,8 @@ for uid, sub in enlarge_data.groupby('Id'):
 
 
 expanded_df = pd.concat(expanded_list, ignore_index=True)
-#expanded_df.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\expand_fitbit.csv", index=False)
+print("expanded_df shape:", expanded_df['Id'].nunique())
+expanded_df.to_csv("C:\\Users\\flyka\\Box\\PPW3_compositional_analysis\\expand_fitbit.csv", index=False)
 
 print("expand_data", len(expanded_df['Id'].unique())) #n=84
 
